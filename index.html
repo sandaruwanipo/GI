@@ -1,64 +1,15 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>NIPO GI - Debug Firebase</title>
+<title>NIPO GI - Add New</title>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-[#f5f6f2] p-4">
-<div class="max-w-[800px] mx-auto">
-<h1 class="text-2xl font-bold">NIPO GI - Firebase Debug</h1>
-<div id="status" class="mt-4 p-3 bg-white border rounded text-sm">Checking Firebase...</div>
-<div id="error" class="mt-2 p-3 bg-red-50 border border-red-200 rounded text-xs hidden"></div>
-
-<div class="mt-6 grid grid-cols-2 gap-4">
-<div class="bg-white border rounded-xl p-4">
-<h3 class="font-semibold">Test Firebase Connection</h3>
-<button onclick="testFirebase()" class="mt-3 w-full bg-black text-white rounded-lg py-2 text-sm">1. Test Write to Firebase</button>
-<button onclick="loadFromFirebase()" class="mt-2 w-full border rounded-lg py-2 text-sm">2. Load from Firebase</button>
-<button onclick="clearFirebase()" class="mt-2 w-full border rounded-lg py-2 text-sm text-red-600">Clear Firebase (for test)</button>
-</div>
-
-<div class="bg-white border rounded-xl p-4">
-<h3 class="font-semibold">Add New GI</h3>
-<input id="giNo" placeholder="LK/GI/04" class="mt-3 w-full border rounded-lg p-2 text-sm">
-<input id="giName" placeholder="Ceylon Pepper" class="mt-2 w-full border rounded-lg p-2 text-sm">
-<input id="appDate" placeholder="22/10/2026" class="mt-2 w-full border rounded-lg p-2 text-sm">
-<button onclick="addNew()" class="mt-3 w-full bg-black text-white rounded-lg py-2 text-sm">Add to Firebase</button>
-</div>
-</div>
-
-<div class="mt-6 bg-white border rounded-xl overflow-hidden">
-<div class="p-3 border-b font-semibold text-sm">Firebase Data (gi_registry collection) - <span id="count">0</span> records</div>
-<table class="w-full text-sm"><thead class="bg-gray-50 text-xs uppercase"><tr><th class="p-2 text-left">GI No</th><th class="p-2 text-left">Name</th><th class="p-2 text-left">Date</th></tr></thead><tbody id="tbody"></tbody></table>
-</div>
-
-<div class="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-xl text-xs">
-<b>Why data disappears after refresh?</b><br>
-1. Firebase Rules block write → data never saved<br>
-2. Firestore not created in project gi-nipo<br>
-3. Collection name mismatch<br><br>
-<b>Fix:</b><br>
-Go to https://console.firebase.google.com/project/gi-nipo/firestore<br>
-- If you see "Create database" → Click Create → Start in TEST MODE<br>
-- Go to Rules tab → Paste:<br>
-<code style="background:white;padding:2px 4px;border-radius:4px;display:block;margin-top:4px;white-space:pre">rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    match /{document=**} {
-      allow read, write: if true;
-    }
-  }
-}</code><br>
-- Click Publish<br>
-- Then come back and click "Test Write to Firebase" - should say ✅
-</div>
-</div>
-
+<body class="bg-[#f5f6f2]">
+<div id="root"></div>
 <script>
 const firebaseConfig = {
   apiKey: "AIzaSyAR3MJ9cX_c3MFChtd5jwgfM3NysRwzbk0",
@@ -69,75 +20,112 @@ const firebaseConfig = {
   appId: "1:219686560103:web:f0beff056ab860eedb4fc2"
 };
 firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
+window.db = firebase.firestore();
 
-function showStatus(msg, isError=false) {
-  document.getElementById('status').textContent = msg;
-  console.log(msg);
-  if(isError) {
-    document.getElementById('error').style.display='block';
-    document.getElementById('error').textContent = msg;
-  }
-}
+var Tm=[{id:"1",giNo:"LK/GI/01",appDate:"27/02/2025",applicant:"Sri Lanka Export Development Board",address:"No. 42, NDB-EDB Tower, Nawam Mawatha, Colombo 02",giName:"Ceylon Cinnamon",type:"Agricultural",conditions:"-",gazette:"09/02/2026, L033",registration:"Pending",page:"1",fileNo:"GI"},{id:"2",giNo:"LK/GI/02",appDate:"11/04/2025",applicant:"Trade Development Authority of Pakistan (TDAP)",address:"5th floor, Block A, Finance and Trade Centre, Shahrah-e-Faisal, Karachi-75350",giName:"Basmati",type:"Agricultural",conditions:"-",gazette:"02/10/2026, Gazette No. 2,509",registration:"Pending",page:"1",fileNo:"GI"},{id:"3",giNo:"LK/GI/03",appDate:"09/03/2026",applicant:"Ceylon Golden Pineapple Association",address:"No. 190, Lavalupitiya, Wathuragama, Gampaha",giName:"Ceylon Golden Pineapple",type:"Agricultural",conditions:"-",gazette:"-",registration:"Pending",page:"2",fileNo:"GI"}];
+window.Tm = Tm;
 
-async function testFirebase() {
-  showStatus("Testing Firebase write...");
+async function loadData() {
+  if(!window.db) return Tm;
   try {
-    await db.collection("gi_registry").doc("test").set({
-      giNo: "TEST", giName: "Test Works", appDate: new Date().toLocaleDateString(), id: "test", registration: "Pending"
-    });
-    showStatus("✅ Firebase WRITE works! Now try Add New");
-    loadFromFirebase();
-  } catch(e) {
-    showStatus("❌ Firebase WRITE FAILED: " + e.message + " - Check Firestore Rules allow write", true);
-  }
+    const snap = await window.db.collection("gi_registry").get();
+    if(!snap.empty) {
+      const fb=[];
+      snap.forEach(d=> fb.push(d.data()));
+      return fb;
+    }
+  } catch(e) { console.log("Firebase load error:", e.message); }
+  return Tm;
 }
 
-async function loadFromFirebase() {
-  showStatus("Loading from Firebase gi_registry...");
+window.pushRegistryToFirebase = async () => {
+  for(const item of Tm){
+    await window.db.collection("gi_registry").doc(item.id).set(item, {merge:true});
+  }
+  alert("Pushed "+Tm.length+" to Firebase");
+  render();
+};
+
+window.addNewGI = async () => {
+  const giNo = document.getElementById('new-giNo').value;
+  const giName = document.getElementById('new-giName').value;
+  const applicant = document.getElementById('new-applicant').value;
+  const appDate = document.getElementById('new-appDate').value;
+  const type = document.getElementById('new-type').value;
+  const registration = document.getElementById('new-reg').value;
+  if(!giNo || !giName) { alert("Enter GI No and GI Name"); return; }
+  
+  const newId = Date.now().toString();
+  const newGI = {
+    id: newId,
+    giNo: giNo,
+    giName: giName,
+    applicant: applicant,
+    appDate: appDate,
+    type: type,
+    registration: registration,
+    address: "",
+    conditions: "-",
+    gazette: "-",
+    page: "1",
+    fileNo: "GI"
+  };
+  
   try {
-    const snap = await db.collection("gi_registry").get();
-    showStatus("✅ Loaded "+snap.size+" records from Firebase collection gi_registry");
-    document.getElementById('count').textContent = snap.size;
-    const tbody = document.getElementById('tbody');
-    tbody.innerHTML='';
-    snap.forEach(doc=>{
-      const d=doc.data();
-      const tr=document.createElement('tr');
-      tr.innerHTML='<td class="p-2">'+(d.giNo||'')+'</td><td class="p-2 font-medium">'+(d.giName||'')+'</td><td class="p-2">'+(d.appDate||'')+'</td>';
-      tbody.appendChild(tr);
-    });
-    if(snap.empty) tbody.innerHTML='<tr><td colspan=3 class="p-4 text-center text-gray-400">No data in Firebase yet. Click Test Write</td></tr>';
+    await window.db.collection("gi_registry").doc(newId).set(newGI);
+    alert("✅ New GI '"+giName+"' added to Firebase - Public will see now!");
+    document.getElementById('new-giNo').value='';
+    document.getElementById('new-giName').value='';
+    document.getElementById('new-applicant').value='';
+    render();
   } catch(e) {
-    showStatus("❌ Firebase READ FAILED: " + e.message, true);
+    alert("❌ Firebase error: "+e.message+" - Check Firestore Rules allow write");
   }
-}
+};
 
-async function addNew() {
-  const giNo = document.getElementById('giNo').value;
-  const giName = document.getElementById('giName').value;
-  const appDate = document.getElementById('appDate').value;
-  if(!giNo || !giName) { alert("Enter GI No and Name"); return; }
-  const id = Date.now().toString();
-  try {
-    await db.collection("gi_registry").doc(id).set({
-      id: id, giNo: giNo, giName: giName, appDate: appDate, registration: "Pending", type: "Agricultural"
-    });
-    showStatus("✅ Added '"+giName+"' to Firebase - Will stay after refresh");
-    loadFromFirebase();
-  } catch(e) {
-    showStatus("❌ Add FAILED: "+e.message, true);
-  }
+async function render() {
+  const data = await loadData();
+  const root = document.getElementById('root');
+  root.innerHTML = `
+    <div style="max-width:1280px;margin:auto;padding:20px">
+      <h1 style="font-size:32px;font-weight:bold">NIPO GI Registry</h1>
+      <p style="font-size:12px;color:gray;margin-top:4px">Firebase: gi-nipo | Public view reads from gi_registry collection</p>
+      
+      <div style="margin-top:20px;display:grid;grid-template-columns:1fr 320px;gap:20px">
+        <div style="background:white;border:1px solid #ddd;border-radius:12px;overflow:hidden">
+          <div style="padding:16px;border-bottom:1px solid #eee;font-weight:600">Public GI List (${data.length} records - from Firebase if available)</div>
+          <div style="overflow:auto;max-height:600px">
+            <table style="width:100%;font-size:13px"><thead style="background:#f8f8f8;position:sticky;top:0"><tr><th style="padding:10px;text-align:left">GI No</th><th style="padding:10px;text-align:left">GI Name</th><th style="padding:10px;text-align:left">Date</th><th style="padding:10px;text-align:left">Status</th></tr></thead><tbody id="tbody"></tbody></table>
+          </div>
+        </div>
+        
+        <div style="background:white;border:1px solid #ddd;border-radius:12px;padding:16px;height:fit-content;position:sticky;top:20px">
+          <h3 style="font-weight:600">Add New GI (Public will see)</h3>
+          <div style="margin-top:12px;display:flex;flex-direction:column;gap:10px">
+            <input id="new-giNo" placeholder="GI No (e.g. LK/GI/04)" style="border:1px solid #ddd;border-radius:8px;padding:10px;font-size:13px">
+            <input id="new-giName" placeholder="GI Name (e.g. Ceylon Pepper)" style="border:1px solid #ddd;border-radius:8px;padding:10px;font-size:13px">
+            <input id="new-applicant" placeholder="Applicant" style="border:1px solid #ddd;border-radius:8px;padding:10px;font-size:13px">
+            <input id="new-appDate" placeholder="App Date (e.g. 22/10/2026)" style="border:1px solid #ddd;border-radius:8px;padding:10px;font-size:13px">
+            <select id="new-type" style="border:1px solid #ddd;border-radius:8px;padding:10px;font-size:13px"><option>Agricultural</option><option>Food</option><option>Handicraft</option><option>Industrial</option></select>
+            <select id="new-reg" style="border:1px solid #ddd;border-radius:8px;padding:10px;font-size:13px"><option>Pending</option><option>Registered</option><option>Published</option></select>
+            <button onclick="addNewGI()" style="background:black;color:white;border-radius:10px;padding:12px;font-size:14px;font-weight:500">+ Add to Firebase (Public)</button>
+            <div style="height:1px;background:#eee;margin:8px 0"></div>
+            <button onclick="pushRegistryToFirebase()" style="border:1px solid #ddd;border-radius:10px;padding:10px;font-size:12px">Push Old 3 Records to Firebase</button>
+            <p style="font-size:10px;color:gray">• New GI saves to Firebase collection gi_registry<br>• Public page reads from Firebase instantly<br>• Set Firestore Rules to allow read, write: if true</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+  const tbody = document.getElementById('tbody');
+  data.forEach(item=>{
+    const tr=document.createElement('tr');
+    tr.style.borderTop='1px solid #eee';
+    tr.innerHTML='<td style="padding:10px">'+(item.giNo||'')+'</td><td style="padding:10px;font-weight:500">'+(item.giName||'')+'</td><td style="padding:10px">'+(item.appDate||'')+'</td><td style="padding:10px"><span style="background:#fef3c7;border:1px solid #fde68a;padding:2px 8px;border-radius:999px;font-size:10px">'+(item.registration||'')+'</span></td>';
+    tbody.appendChild(tr);
+  });
 }
-
-async function clearFirebase() {
-  if(!confirm("Delete test record?")) return;
-  await db.collection("gi_registry").doc("test").delete();
-  loadFromFirebase();
-}
-
-// Auto load on start
-loadFromFirebase();
+render();
 </script>
 </body>
 </html>
