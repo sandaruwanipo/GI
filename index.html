@@ -3,13 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>NIPO GI - Add New</title>
+<title>NIPO GI - GitHub Fixed</title>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-[#f5f6f2]">
-<div id="root"></div>
+<body>
+<div id="root"><div style="padding:40px;text-align:center">Loading NIPO GI...<div id="status"></div></div></div>
 <script>
 const firebaseConfig = {
   apiKey: "AIzaSyAR3MJ9cX_c3MFChtd5jwgfM3NysRwzbk0",
@@ -21,99 +21,55 @@ const firebaseConfig = {
 };
 firebase.initializeApp(firebaseConfig);
 window.db = firebase.firestore();
-
+console.log("Firebase OK gi-nipo");
 var Tm=[{id:"1",giNo:"LK/GI/01",appDate:"27/02/2025",applicant:"Sri Lanka Export Development Board",address:"No. 42, NDB-EDB Tower, Nawam Mawatha, Colombo 02",giName:"Ceylon Cinnamon",type:"Agricultural",conditions:"-",gazette:"09/02/2026, L033",registration:"Pending",page:"1",fileNo:"GI"},{id:"2",giNo:"LK/GI/02",appDate:"11/04/2025",applicant:"Trade Development Authority of Pakistan (TDAP)",address:"5th floor, Block A, Finance and Trade Centre, Shahrah-e-Faisal, Karachi-75350",giName:"Basmati",type:"Agricultural",conditions:"-",gazette:"02/10/2026, Gazette No. 2,509",registration:"Pending",page:"1",fileNo:"GI"},{id:"3",giNo:"LK/GI/03",appDate:"09/03/2026",applicant:"Ceylon Golden Pineapple Association",address:"No. 190, Lavalupitiya, Wathuragama, Gampaha",giName:"Ceylon Golden Pineapple",type:"Agricultural",conditions:"-",gazette:"-",registration:"Pending",page:"2",fileNo:"GI"}];
+
 window.Tm = Tm;
-
-async function loadData() {
-  if(!window.db) return Tm;
-  try {
-    const snap = await window.db.collection("gi_registry").get();
-    if(!snap.empty) {
-      const fb=[];
-      snap.forEach(d=> fb.push(d.data()));
-      return fb;
-    }
-  } catch(e) { console.log("Firebase load error:", e.message); }
-  return Tm;
-}
-
 window.pushRegistryToFirebase = async () => {
+  if(!window.db) { alert("Firebase not ready"); return; }
+  let count=0;
   for(const item of Tm){
-    await window.db.collection("gi_registry").doc(item.id).set(item, {merge:true});
+    try {
+      await window.db.collection("gi_registry").doc(item.id).set(item, {merge:true});
+      count++;
+    } catch(e) { console.error(e); alert("Error: "+e.message+" - Check Firestore Rules"); return; }
   }
-  alert("Pushed "+Tm.length+" to Firebase");
-  render();
-};
-
-window.addNewGI = async () => {
-  const giNo = document.getElementById('new-giNo').value;
-  const giName = document.getElementById('new-giName').value;
-  const applicant = document.getElementById('new-applicant').value;
-  const appDate = document.getElementById('new-appDate').value;
-  const type = document.getElementById('new-type').value;
-  const registration = document.getElementById('new-reg').value;
-  if(!giNo || !giName) { alert("Enter GI No and GI Name"); return; }
-  
-  const newId = Date.now().toString();
-  const newGI = {
-    id: newId,
-    giNo: giNo,
-    giName: giName,
-    applicant: applicant,
-    appDate: appDate,
-    type: type,
-    registration: registration,
-    address: "",
-    conditions: "-",
-    gazette: "-",
-    page: "1",
-    fileNo: "GI"
-  };
-  
-  try {
-    await window.db.collection("gi_registry").doc(newId).set(newGI);
-    alert("✅ New GI '"+giName+"' added to Firebase - Public will see now!");
-    document.getElementById('new-giNo').value='';
-    document.getElementById('new-giName').value='';
-    document.getElementById('new-applicant').value='';
-    render();
-  } catch(e) {
-    alert("❌ Firebase error: "+e.message+" - Check Firestore Rules allow write");
-  }
+  alert("Pushed "+count+" to Firebase - Public view ready");
 };
 
 async function render() {
-  const data = await loadData();
   const root = document.getElementById('root');
+  let data = Tm;
+  let fbMsg = "Local data";
+  if(window.db) {
+    try {
+      const snap = await window.db.collection("gi_registry").get();
+      if(!snap.empty) {
+        data = [];
+        snap.forEach(doc=> data.push(doc.data()));
+        fbMsg = "From Firebase: "+data.length+" records";
+      } else {
+        fbMsg = "Firebase empty - showing local "+data.length+" - run pushRegistryToFirebase() in console (F12)";
+      }
+    } catch(e) {
+      fbMsg = "Firebase error (check Rules): "+e.message;
+    }
+  }
   root.innerHTML = `
     <div style="max-width:1280px;margin:auto;padding:20px">
-      <h1 style="font-size:32px;font-weight:bold">NIPO GI Registry</h1>
-      <p style="font-size:12px;color:gray;margin-top:4px">Firebase: gi-nipo | Public view reads from gi_registry collection</p>
-      
-      <div style="margin-top:20px;display:grid;grid-template-columns:1fr 320px;gap:20px">
-        <div style="background:white;border:1px solid #ddd;border-radius:12px;overflow:hidden">
-          <div style="padding:16px;border-bottom:1px solid #eee;font-weight:600">Public GI List (${data.length} records - from Firebase if available)</div>
-          <div style="overflow:auto;max-height:600px">
-            <table style="width:100%;font-size:13px"><thead style="background:#f8f8f8;position:sticky;top:0"><tr><th style="padding:10px;text-align:left">GI No</th><th style="padding:10px;text-align:left">GI Name</th><th style="padding:10px;text-align:left">Date</th><th style="padding:10px;text-align:left">Status</th></tr></thead><tbody id="tbody"></tbody></table>
-          </div>
-        </div>
-        
-        <div style="background:white;border:1px solid #ddd;border-radius:12px;padding:16px;height:fit-content;position:sticky;top:20px">
-          <h3 style="font-weight:600">Add New GI (Public will see)</h3>
-          <div style="margin-top:12px;display:flex;flex-direction:column;gap:10px">
-            <input id="new-giNo" placeholder="GI No (e.g. LK/GI/04)" style="border:1px solid #ddd;border-radius:8px;padding:10px;font-size:13px">
-            <input id="new-giName" placeholder="GI Name (e.g. Ceylon Pepper)" style="border:1px solid #ddd;border-radius:8px;padding:10px;font-size:13px">
-            <input id="new-applicant" placeholder="Applicant" style="border:1px solid #ddd;border-radius:8px;padding:10px;font-size:13px">
-            <input id="new-appDate" placeholder="App Date (e.g. 22/10/2026)" style="border:1px solid #ddd;border-radius:8px;padding:10px;font-size:13px">
-            <select id="new-type" style="border:1px solid #ddd;border-radius:8px;padding:10px;font-size:13px"><option>Agricultural</option><option>Food</option><option>Handicraft</option><option>Industrial</option></select>
-            <select id="new-reg" style="border:1px solid #ddd;border-radius:8px;padding:10px;font-size:13px"><option>Pending</option><option>Registered</option><option>Published</option></select>
-            <button onclick="addNewGI()" style="background:black;color:white;border-radius:10px;padding:12px;font-size:14px;font-weight:500">+ Add to Firebase (Public)</button>
-            <div style="height:1px;background:#eee;margin:8px 0"></div>
-            <button onclick="pushRegistryToFirebase()" style="border:1px solid #ddd;border-radius:10px;padding:10px;font-size:12px">Push Old 3 Records to Firebase</button>
-            <p style="font-size:10px;color:gray">• New GI saves to Firebase collection gi_registry<br>• Public page reads from Firebase instantly<br>• Set Firestore Rules to allow read, write: if true</p>
-          </div>
-        </div>
+      <h1 style="font-size:36px;font-weight:bold">NIPO GI</h1>
+      <p style="font-size:11px;color:gray">Public View - ${fbMsg}</p>
+      <button onclick="pushRegistryToFirebase()" style="margin-top:10px;padding:8px 16px;background:black;color:white;border-radius:8px">Push to Firebase (Admin)</button>
+      <div style="margin-top:20px;background:white;border:1px solid #ddd;border-radius:12px;overflow:hidden">
+        <table style="width:100%;font-size:13px"><thead style="background:#f8f8f8"><tr><th style="padding:12px;text-align:left">GI No</th><th style="padding:12px;text-align:left">GI Name</th><th style="padding:12px;text-align:left">Applicant</th><th style="padding:12px;text-align:left">Status</th></tr></thead><tbody id="tbody"></tbody></table>
+      </div>
+      <div style="margin-top:20px;padding:16px;background:white;border:1px solid #ddd;border-radius:12px;font-size:12px;color:gray">
+        <b>GitHub Pages Fix:</b><br>
+        1. Rename this file to index.html<br>
+        2. Upload to GitHub repo root<br>
+        3. Settings > Pages > Deploy from main / root<br>
+        4. After deploy, open page, F12 console, run pushRegistryToFirebase()<br>
+        5. Public now sees data from Firebase gi_registry collection
       </div>
     </div>
   `;
@@ -121,7 +77,7 @@ async function render() {
   data.forEach(item=>{
     const tr=document.createElement('tr');
     tr.style.borderTop='1px solid #eee';
-    tr.innerHTML='<td style="padding:10px">'+(item.giNo||'')+'</td><td style="padding:10px;font-weight:500">'+(item.giName||'')+'</td><td style="padding:10px">'+(item.appDate||'')+'</td><td style="padding:10px"><span style="background:#fef3c7;border:1px solid #fde68a;padding:2px 8px;border-radius:999px;font-size:10px">'+(item.registration||'')+'</span></td>';
+    tr.innerHTML='<td style="padding:12px">'+(item.giNo||'')+'</td><td style="padding:12px;font-weight:500">'+(item.giName||'')+'</td><td style="padding:12px">'+(item.applicant||'')+'</td><td style="padding:12px">'+(item.registration||'')+'</td>';
     tbody.appendChild(tr);
   });
 }
